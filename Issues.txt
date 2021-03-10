@@ -1,0 +1,6 @@
+DOMAIN MySeq
+Error messages for record types ["a" -> Int] but [a |-> Int]
+Fast type checking for the empty set
+Type annotations for user-defined operators
+Disable symbolic transitions
+Fault localizations
