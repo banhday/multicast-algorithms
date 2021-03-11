@@ -1,6 +1,5 @@
------------------------- MODULE Skeen_missing_types ------------------------
+------------------- MODULE Skeen3_bugs_in_reduction_rules -------------------
 
-(* Missing type for the empty set at Line 168*)
 
 EXTENDS Integers,  FiniteSets, Sequences, TLC
 
@@ -14,14 +13,8 @@ vars == << clock, phase, localTS, globalTS, deliver, rcvdMcastID, rcvdProposeMsg
             inTransit, front, Delivered, mcastGreater >>
 
 
-(*
-McastMsg == { [groupDest |-> {{1}, {2}}, data |-> [type |-> Multicast, id |-> (N * 20 + 1)]],
-              [groupDest |-> {{2}, {3}}, data |-> [type |-> Multicast, id |-> (N * 20 + 2)]],
-              [groupDest |-> {{3}, {4}}, data |-> [type |-> Multicast, id |-> (N * 20 + 3)]],
-              [groupDest |-> {{4}, {1}}, data |-> [type |-> Multicast, id |-> (N * 20 + 4)]]  }
-*)
 
-CONSTANT N, McastMsg 
+N == 3
 Proc == 1..N
 Group == {{p} : p \in Proc}  
 GroupNull == {} <: {Int}
@@ -37,8 +30,12 @@ Proposed == Start + 1
 Committed == Proposed + 1 
 
 MyNat == 0..100  
-McastID == { m.data.id : m \in McastMsg }
-McastMsgStatus == {Start, Proposed, Committed}                           
+McastID == (N * 20 + 1) .. (N * 20 + 3)
+McastMsgStatus == {Start, Proposed, Committed}
+McastMsg == { [groupDest |-> {{1}, {2}}, data |-> [type |-> Multicast, id |-> (N * 20 + 1)]],
+              [groupDest |-> {{2}, {3}}, data |-> [type |-> Multicast, id |-> (N * 20 + 2)]],
+              [groupDest |-> {{3}, {1}}, data |-> [type |-> Multicast, id |-> (N * 20 + 3)]]  }
+                            
 McastPhase == [McastID -> McastMsgStatus]                              
 
 \* Is a Multicast message
@@ -86,7 +83,8 @@ Validity == \A p \in Proc : \A k \in DOMAIN deliver[p] : deliver[p][k] \in mcast
 
 \* Whether process self is one of receivers of message mcastMsg. Recall that Dest(m) (in the 
 \* paper) is the set of process groups. 
-isMcastRcver(self, mcastMsg) == \E group \in mcastMsg.groupDest : self \in group  
+isMcastRcver(self, mcastMsg) == ( \E group \in mcastMsg.groupDest : self \in group )  
+\* isMcastRcver(self, mcastMsg) == ( \E group \in mcastMsg.groupDest : self \in group ) <: BOOLEAN
 
 
 \* There exists process p such that p delivered m1 before m2.      
@@ -164,26 +162,24 @@ Init ==
   /\ localTS = [p \in Proc |-> [m \in McastID |-> TimestampNull]]
   /\ globalTS = [p \in Proc |-> [m \in McastID |-> TimestampNull]]
   /\ Delivered = [p \in Proc |-> [m \in McastID |-> FALSE]]
-  /\ rcvdMcastID = [p \in Proc |-> ({} <: {Int})]
-  /\ rcvdProposeMsg = [p \in Proc |-> {} ] 
-  (*
-  /\ rcvdProposeMsg = [p \in Proc |-> ({} <: {[source |-> Int, 
-                                               dest |-> Int, 
-                                               data |-> [type |-> Int, 
-                                                         mcastID |-> Int, 
-                                                         g |-> {Int},
-                                                         lts |-> [time |-> Int, group |-> {Int} ]]]}) ]
-  *)
+  /\ rcvdMcastID = [p \in Proc |-> {} ] <: [ Int -> {Int} ]
+  \* /\ rcvdProposeMsg = [p \in Proc |-> {}]
+  \*
+  /\ rcvdProposeMsg = [p \in Proc |-> {} ] <: [ Int -> {[source |-> Int, 
+                                                         dest |-> Int, 
+                                                         data |-> [type |-> Int, 
+                                                                   mcastID |-> Int, 
+                                                                   g |-> {Int},
+                                                                   lts |-> [time |-> Int, group |-> {Int} ]]]} ] 
   /\ mcastedID = {} <: {Int}
-  /\ inTransit = [p \in Proc |-> [q \in Proc |-> 
-                    (<< >> <: Seq([source |-> Int, 
-                                   dest |-> Int, 
-                                   data |-> [type |-> Int, 
-                                             mcastID |-> Int, 
-                                             g |-> {Int},
-                                             lts |-> [time |-> Int, group |-> {Int}]] ]))  ]]
+  /\ inTransit = [p \in Proc |-> [q \in Proc |-> << >> ]] <: [ Int -> [ Int -> Seq([source |-> Int, 
+                                                                                    dest |-> Int, 
+                                                                                    data |-> [type |-> Int, 
+                                                                                              mcastID |-> Int, 
+                                                                                              g |-> {Int},
+                                                                                              lts |-> [time |-> Int, group |-> {Int}]]] ) ]]
   /\ front = [p \in Proc |-> [q \in Proc |-> 0]]
-  /\ deliver = [p \in Proc |-> << >> <: Seq(Int) ]
+  /\ deliver = [p \in Proc |-> << >>  ] <: [ Int -> Seq(Int) ]
   /\ mcastGreater = [m1 \in McastID |-> [m2 \in McastID |-> FALSE]]
                                       
 
@@ -296,9 +292,8 @@ Spec ==
                           /\ HandleProposeMsg(rcver, msg) 
              \/ \E p \in Proc : \E msg \in rcvdMcastID[p] : Deliver(p, msg) )      
 
+
 =============================================================================
 \* Modification History
-\* Last modified Wed Mar 10 20:23:24 CET 2021 by tran
-\* Last modified Sun May 12 13:51:07 CEST 2019 by tthai
-\* Last modified Fri May 10 10:22:12 CEST 2019 by tthai
-\* Created Wed Nov 28 15:48:56 CET 2018 by TTHAI
+\* Last modified Thu Mar 11 12:15:46 CET 2021 by tran
+\* Created Thu Mar 11 12:15:20 CET 2021 by tran
